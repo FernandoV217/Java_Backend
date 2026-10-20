@@ -65,22 +65,26 @@ jobs:
   # 3. DESPLIEGUE CONTINUO: Conectarse al servidor Ubuntu y actualizar el contenedor
   deploy:
     needs: push-to-registry
-    runs-on: self-hosted
+    runs-on: self-hosted 
     steps:
-      - name: Desplegar en Ubuntu Server
+      - name: Desplegar Docker localmente
         run: |
-            # 1. Iniciar sesión en el registro de GitHub desde el servidor local
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            
-            # 2. Detener y remover el contenedor anterior si ya existía
-            docker stop spring-app || true
-            docker rm spring-app || true
-            
-            # 3. Descargar la versión más reciente de la imagen
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-            # 4. Iniciar el nuevo contenedor mapeando el puerto 8080
-            docker run -d --name spring-app -p 8080:8080 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-            # 5. Limpieza de imágenes antiguas colgadas
-            docker image prune -f
+          # 1. Convertir el nombre del repositorio a minúsculas de forma segura en Bash
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_URL="ghcr.io/${REPO_LOWER}:latest"
+          
+          # 2. Iniciar sesión en GitHub Packages
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # 3. Detener y remover contenedor viejo (redireccionando errores para que no rompa el pipeline si no existen)
+          docker stop spring-app 2>/dev/null || true
+          docker rm spring-app 2>/dev/null || true
+          
+          # 4. Traer la nueva imagen usando la URL en minúsculas
+          docker pull $IMAGE_URL
+          
+          # 5. Correr el contenedor mapeando el puerto 8080
+          docker run -d --name spring-app -p 8080:8080 $IMAGE_URL
+          
+          # 6. Limpieza de imágenes antiguas colgadas
+          docker image prune -f

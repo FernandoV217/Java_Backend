@@ -74,6 +74,15 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            printf '%s\n' "$SSH_KEY" > deploy_key
+            chmod 600 deploy_key
+            if ssh-keygen -y -f deploy_key > /dev/null; then
+              echo "La clave privada es válida"
+            else
+              echo "La clave privada no se puede interpretar"
+              exit 1
+            fi
+
             # 1. Iniciar sesión en el registro de GitHub desde el servidor local
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             

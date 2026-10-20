@@ -2,6 +2,7 @@
 FROM eclipse-temurin:25 AS build
 WORKDIR /app
 COPY . .
+RUN chmod +x mvnw
 # Compila omitiendo los tests porque el pipeline de CI ya los habrá ejecutado
 RUN ./mvnw clean package -DskipTests
 

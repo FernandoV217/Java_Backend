@@ -1,0 +1,84 @@
+name: CI/CD Spring Boot con Docker
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  REGISTRY: ghcr.io
+  # Esto convertirá el nombre de tu repositorio a minúsculas automáticamente
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 1. INTEGRACIÓN CONTINUA: Probar y Compilar
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven # Cambiar a 'gradle' si usas Gradle
+
+      - name: Ejecutar Pruebas Unitarias
+        run: ./mvnw test # Cambiar a './gradlew test' si aplica
+
+  # 2. ENTREGA CONTINUA: Construir imagen Docker y subirla a GitHub Registry
+  push-to-registry:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Iniciar sesión en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y Subir Imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # 3. DESPLIEGUE CONTINUO: Conectarse al servidor Ubuntu y actualizar el contenedor
+  deploy:
+    needs: push-to-registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desplegar en Ubuntu Server vía SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # 1. Iniciar sesión en el registro de GitHub desde el servidor local
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            
+            # 2. Detener y remover el contenedor anterior si ya existía
+            docker stop spring-app || true
+            docker rm spring-app || true
+            
+            # 3. Descargar la versión más reciente de la imagen
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            # 4. Iniciar el nuevo contenedor mapeando el puerto 8080
+            docker run -d --name spring-app -p 8080:8080 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            # 5. Limpieza de imágenes antiguas colgadas
+            docker image prune -f

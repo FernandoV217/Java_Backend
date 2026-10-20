@@ -65,15 +65,10 @@ jobs:
   # 3. DESPLIEGUE CONTINUO: Conectarse al servidor Ubuntu y actualizar el contenedor
   deploy:
     needs: push-to-registry
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Desplegar en Ubuntu Server vía SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
+      - name: Desplegar en Ubuntu Server
+        run: |
             # 1. Iniciar sesión en el registro de GitHub desde el servidor local
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             

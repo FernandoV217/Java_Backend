@@ -84,7 +84,7 @@ jobs:
           docker pull $IMAGE_URL
           
           # 5. Correr el contenedor mapeando el puerto 8080
-          docker run -d --name spring-app -p 8080:8080 $IMAGE_URL
+          docker run -d --name spring-app --network spring-network -p 8080:8080 -e DB_NAME="${{ secrets.DB_NAME }}" -e DB_USER="${{ secrets.DB_USER }}" -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" $IMAGE_URL
           
           # 6. Limpieza de imágenes antiguas colgadas
           docker image prune -f

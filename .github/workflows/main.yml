@@ -26,6 +26,9 @@ jobs:
           distribution: 'temurin'
           cache: maven # Cambiar a 'gradle' si usas Gradle
 
+      - name: Give Maven Wrapper execute permission
+        run: chmod +x mvnw
+        
       - name: Ejecutar Pruebas Unitarias
         run: ./mvnw test # Cambiar a './gradlew test' si aplica
 
